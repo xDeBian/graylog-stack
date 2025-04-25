@@ -1,0 +1,68 @@
+
+- name: Ensure MongoDB is running before creating Graylog user
+  systemd:
+    name: mongod
+    state: started
+  register: mongod_status
+  retries: 3
+  delay: 5
+  until: mongod_status.state == 'started'
+
+- name: Create graylog database if it doesn't exist
+  command: >
+    mongosh --host {{ groups['mongodb'][0] }} --port {{ mongodb_port }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval '
+    db = db.getSiblingDB("{{ mongodb_graylog_db }}");
+    print("Database created or already exists");'
+  register: create_db
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ groups['mongodb'][0] }}"
+
+- name: Check if graylog user already exists
+  command: >
+    mongosh --host {{ groups['mongodb'][0] }} --port {{ mongodb_port }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval '
+    db = db.getSiblingDB("{{ mongodb_graylog_db }}");
+    if (db.getUser("{{ mongodb_graylog_user }}")) {
+      print("USER_EXISTS");
+    } else {
+      print("USER_DOES_NOT_EXIST");
+    }'
+  register: check_user
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ groups['mongodb'][0] }}"
+
+- name: Create graylog user if it doesn't exist
+  command: >
+    mongosh --host {{ groups['mongodb'][0] }} --port {{ mongodb_port }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval '
+    db = db.getSiblingDB("{{ mongodb_graylog_db }}");
+    db.createUser({
+      user: "{{ mongodb_graylog_user }}",
+      pwd: "{{ mongodb_graylog_password }}",
+      roles: [{ role: "readWrite", db: "{{ mongodb_graylog_db }}" }]
+    });
+    print("GRAYLOG_USER_CREATED");'
+  register: create_user
+  changed_when: "'GRAYLOG_USER_CREATED' in create_user.stdout"
+  run_once: true
+  delegate_to: "{{ groups['mongodb'][0] }}"
+  when: "'USER_DOES_NOT_EXIST' in check_user.stdout"
+  ignore_errors: false
+
+- name: Display graylog user creation status
+  debug:
+    msg: >
+      {% if check_user.stdout is regex('USER_EXISTS') %}
+      Graylog user already exists in database
+      {% elif create_user.changed %}
+      Graylog user successfully created in database
+      {% else %}
+      Failed to create Graylog user
+      {% endif %}
+  run_once: true
+
+- name: Show Graylog MongoDB connection URI
+  debug:
+    msg: "MongoDB URI for Graylog configuration: {{ mongodb_uri }}"
+  run_once: true
+

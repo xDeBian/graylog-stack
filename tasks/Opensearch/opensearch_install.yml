@@ -1,0 +1,50 @@
+# Create opensearch group
+- name: Create opensearch group
+  ansible.builtin.group:
+    name: opensearch
+    state: present
+
+# Create opensearch user
+- name: Create opensearch user
+  ansible.builtin.user:
+    name: opensearch
+    group: opensearch
+    shell: /bin/bash
+    create_home: no
+    state: present
+
+# Update APT package list and install dependencies
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - lsb-release
+      - ca-certificates
+      - curl
+      - gnupg2
+    state: present
+    update_cache: yes
+
+# Download and add OpenSearch GPG key
+- name: Download and add OpenSearch GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/opensearch-keyring
+  args:
+    executable: /bin/bash
+
+# Add OpenSearch repository
+- name: Add OpenSearch APT repository
+  ansible.builtin.shell: |
+    echo "deb [signed-by=/usr/share/keyrings/opensearch-keyring] https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main" | sudo tee /etc/apt/sources.list.d/opensearch-2.x.list
+  args:
+    executable: /bin/bash
+
+# Update APT package list
+- name: Update APT package list
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install OpenSearch version {{ opensearch_version }}
+  ansible.builtin.shell: |
+    sudo env OPENSEARCH_INITIAL_ADMIN_PASSWORD={{ opensearch_password }} apt-get install -y opensearch={{ opensearch_version }}
+  args:
+    executable: /bin/bash

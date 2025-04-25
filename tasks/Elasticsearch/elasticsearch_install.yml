@@ -1,0 +1,67 @@
+# Elasticsearch repository setup tasks
+- name: Add Elasticsearch GPG key
+  shell: wget -qO - {{ elasticsearch_repo_key }} | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/elasticsearch-keyring.gpg
+
+- name: Install apt-transport-https
+  apt:
+    name: apt-transport-https
+    state: present
+    update_cache: yes
+
+- name: Add Elasticsearch repository
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] {{ elasticsearch_repo_url }}"
+    state: present
+
+- name: Update  repo cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+# Create elasticsearch group
+- name: Create elasticsearch group
+  group:
+    name: elasticsearch
+    state: present
+
+# Create elasticsearch user
+- name: Create elasticsearch user
+  user:
+    name: elasticsearch
+    group: elasticsearch
+    shell: /bin/bash
+    create_home: no
+    state: present
+
+# Install Elasticsearch
+- name: Install Elasticsearch {{ elasticsearch_version }}
+  apt:
+    name: "elasticsearch={{ elasticsearch_version }}"
+    state: present
+    update_cache: yes
+
+# Create data directory
+- name: Create data directory
+  file:
+    path: "{{ elasticsearch_path_data }}"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0755'
+
+# Create logs directory
+- name: Create logs directory
+  file:
+    path: "{{ elasticsearch_path_logs }}"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0755'
+
+# # Start and enable Elasticsearch service
+# - name: Start and enable Elasticsearch service
+#   systemd:
+#     name: elasticsearch
+#     state: started
+#     enabled: yes

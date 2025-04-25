@@ -1,0 +1,55 @@
+- name: Download Metricbeat DEB package using wget
+  command: >
+    wget https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-{{ metricbeat_version }}-amd64.deb
+  args:
+    chdir: /tmp
+
+- name: Install Metricbeat DEB package using dpkg
+  command: >
+    sudo dpkg -i /tmp/metricbeat-{{ metricbeat_version }}-amd64.deb
+
+- name: Set Metricbeat output.elasticsearch hosts
+  template:
+    src: "metricbeat.yml.j2"
+    dest: "/etc/metricbeat/metricbeat.yml"
+
+- name: Copy module config
+  template:
+    src: "elasticsearch-xpack.yml.j2"
+    dest: "/etc/metricbeat/modules.d/elasticsearch-xpack.yml"
+
+
+- name: Start and enable Metricbeat service
+  systemd:
+    name: metricbeat
+    state: started
+    enabled: yes
+
+- name: Enable Elasticsearch module for Metricbeat
+  command: metricbeat modules enable elasticsearch
+  changed_when: false
+
+- name: Enable Elasticsearch X-Pack module for Metricbeat
+  command: metricbeat modules enable elasticsearch-xpack
+  changed_when: false
+
+- name: Restart Metricbeat service
+  systemd:
+    name: metricbeat
+    state: restarted
+
+- name: Stop Metricbeat service if running
+  systemd:
+    name: metricbeat
+    state: stopped
+  ignore_errors: true
+
+- name: Remove Metricbeat lock file if it exists
+  file:
+    path: /var/lib/metricbeat/metricbeat.lock
+    state: absent
+
+- name: Restart Metricbeat service
+  systemd:
+    name: metricbeat
+    state: restarted

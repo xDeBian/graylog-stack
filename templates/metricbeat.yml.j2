@@ -1,0 +1,13 @@
+metricbeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+
+output.elasticsearch:
+  # Array of hosts to connect to.
+  hosts:
+    - "http://{{ groups['elasticsearch'][0] }}:9200"
+    - "http://{{ groups['elasticsearch'][1] }}:9200"
+    - "http://{{ groups['elasticsearch'][2] }}:9200"
+
+  # Optional protocol and basic auth credentials.
+  username: "{{ elasticsearch_username }}"
+  password: "{{ elasticsearch_password }}"

@@ -1,0 +1,45 @@
+# Install Java (OpenJDK 17)
+- name: Install OpenJDK 17
+  apt:
+    name: openjdk-17-jre-headless
+    state: present
+  become: yes
+
+# Update APT repository cache
+- name: Update APT package list
+  apt:
+    update_cache: yes
+  become: yes
+
+# Download Graylog repository package
+- name: Download Graylog repository package
+  get_url:
+    url: "{{ graylog_repo_url }}"
+    dest: /tmp/graylog-{{ graylog_repo_version }}-repository_latest.deb
+  become: yes
+
+# Install Graylog repository package
+- name: Install Graylog repository package
+  command: dpkg -i /tmp/graylog-{{ graylog_repo_version }}-repository_latest.deb
+  become: yes
+
+# Update APT package list after adding the Graylog repository
+- name: Update APT package list after adding repository
+  apt:
+    update_cache: yes
+  become: yes
+
+# Install Graylog server with a specific version
+- name: Install Graylog server with specific version
+  apt:
+    name: graylog-server={{ graylog_version }}
+    state: present
+  become: yes
+
+# Enable and start the Graylog service
+- name: Enable and start Graylog service
+  systemd:
+    name: graylog-server
+    state: started
+    enabled: yes
+  become: yes

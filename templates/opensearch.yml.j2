@@ -1,0 +1,30 @@
+# opensearch configuration template
+cluster.name: {{ opensearch_cluster }}
+node.name: {{ inventory_hostname }}
+
+
+path:
+  repo:
+    - /etc/opensearch/backup
+    
+path.data: {{ opensearch_path_data }}
+path.logs: {{ opensearch_path_logs }}
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+
+# Discovery settings
+discovery.seed_hosts: {{ opensearch_discovery_seed_hosts | to_json }}
+
+# Master Nodes
+#cluster.initial_master_nodes:
+cluster.initial_cluster_manager_nodes: [
+{% for host in groups['opensearch'] %}
+{% if hostvars[host]['opensearch_role'] | default(opensearch_default_role) == 'master' %}
+"{{ host }}"{% if not loop.last %},{% endif %}
+{% endif %}
+{% endfor %}
+]
+
+# Memory settings
+bootstrap.memory_lock: false
+

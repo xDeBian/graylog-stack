@@ -1,0 +1,37 @@
+- name: add mongodb gpg
+  copy:
+    src: files/mongodb/mongodb.gpg
+    dest: /tmp/{{ mongodb_keyring_name }}
+
+- name: dearmor mongodb gpg key
+  shell: gpg --dearmor < /tmp/{{ mongodb_keyring_name }} > {{ mongodb_keyring_path }}
+  changed_when: false
+  no_log: false
+
+- name: add mongodb repo
+  apt_repository:
+    repo: deb [ arch=amd64 signed-by={{ mongodb_keyring_path }} ] https://{{ baselinux_repo_server }}/repository/{{ mongodb_repo }}
+    filename: "tbc-mongodb"
+
+- name: install mongodb
+  apt:
+    name:
+      - "mongodb-org={{ mongodb_version }}"
+      - jq
+    update_cache: true
+    state: present
+
+- name: Install pymongo for MongoDB module
+  apt:
+    name: python3-pymongo
+    state: present
+  become: yes
+
+
+- name: Ensure MongoDB is running
+  service:
+    name: mongod
+    state: started
+    enabled: yes
+  become: yes
+

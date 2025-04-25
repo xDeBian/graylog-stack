@@ -1,0 +1,60 @@
+# Step 1: Create directory for SSL certificates
+- name: Create SSL certificates directory
+  file:
+    path: /etc/kibana/certs
+    state: directory
+    owner: kibana
+    group: kibana
+    mode: '0755'
+
+# Step 2: Generate SSL private key (key.key)
+- name: Generate SSL private key (key.key)
+  openssl_privatekey:
+    path: /etc/kibana/certs/key.key
+    size: 2048
+    state: present
+    owner: kibana
+    group: kibana
+    mode: '0600'
+
+# Step 3: Generate Certificate Signing Request (CSR)
+- name: Generate Certificate Signing Request
+  openssl_csr:
+    path: /etc/kibana/certs/kibana.csr
+    privatekey_path: /etc/kibana/certs/key.key
+    common_name: kibana.example.com  # Change this to your domain
+    owner: kibana
+    group: kibana
+    mode: '0644'
+    
+# Step 4: Generate SSL certificate (certificate.crt) for Kibana
+- name: Generate SSL certificate (certificate.crt)
+  openssl_certificate:
+    path: /etc/kibana/certs/certificate.crt
+    privatekey_path: /etc/kibana/certs/key.key
+    csr_path: /etc/kibana/certs/kibana.csr
+    provider: selfsigned
+    selfsigned_create_subject_key_identifier: create_if_not_provided
+    selfsigned_not_after: "{{ '%Y%m%d%H%M%SZ' | strftime(((ansible_date_time.epoch | int) + 315360000) | int) }}"  # 10 years from now
+    selfsigned_not_before: "{{ '%Y%m%d%H%M%SZ' | strftime(ansible_date_time.epoch) }}"  # Now
+    state: present
+    owner: kibana
+    group: kibana
+    mode: '0644'
+
+
+  # Restart Kibana service
+- name: Restart Kibana service
+  systemd:
+    name: "kibana.service"
+    state: started
+    enabled: yes
+
+# Check Kibana service status
+- name: Get Kibana Service Status
+  ansible.builtin.systemd:
+    name: "kibana.service"
+  register: kibana_service_status
+
+- debug:
+    var: kibana_service_status.status.ActiveState

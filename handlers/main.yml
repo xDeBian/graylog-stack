@@ -1,0 +1,34 @@
+---
+  # Elasticsearch restart handler
+  - name: Restart Elasticsearch
+    systemd:
+      name: elasticsearch
+      state: restarted
+      enabled: yes
+
+  # MongoDB restart handler
+  - name: Restart MongoDB
+    systemd:
+      name: mongod
+      state: restarted
+      enabled: yes
+
+  # Graylog restart handler
+  - name: Restart Graylog
+    systemd:
+      name: graylog-server
+      state: restarted
+      enabled: yes
+
+  # Kibana restart handler
+  - name: Restart Kibana
+    systemd:
+      name: kibana
+      state: restarted
+      enabled: yes
+
+  - name: Restart OpenSearch Dashboards
+    systemd:
+      name: opensearch-dashboards
+      state: restarted
+      daemon_reload: yes

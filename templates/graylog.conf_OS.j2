@@ -1,0 +1,84 @@
+############################
+# GRAYLOG FIRST CONFIGURATION
+############################
+is_leader = false
+node_id_file = {{ graylog_node_id_file}}
+root_username = {{ graylog_root_username }}
+root_password_sha2 = {{ graylog_root_password_sha2 }}
+password_secret = {{ graylog_password_secret }}
+root_timezone = {{ graylog_root_timezone }}
+
+bin_dir = {{ graylog_bin_dir }}
+data_dir = {{ graylog_data_dir }}
+plugin_dir = {{ graylog_plugin_dir }}
+
+###############
+# HTTP settings
+###############
+
+http_bind_address = {{ graylog_http_bind_address }}
+http_publish_uri = {{ graylog_publish_uri }}
+http_external_uri = {{ graylog_http_external_uri }}
+http_max_header_size = {{ graylog_http_max_header_size }}
+http_enable_cors = false
+http_enable_gzip = true
+http_thread_pool_size = 64
+
+
+################
+# OpenSearch #
+################
+
+elasticsearch_hosts = {% for host in groups['opensearch'] %}
+http://admin:{{ opensearch_password }}@{{ host }}:9200{% if not loop.last %},{% endif %}{% endfor %}
+
+elasticsearch_compression_enabled = true
+elasticsearch_max_docs_per_index = 20000000
+elasticsearch_max_number_of_indices = 20
+elasticsearch_shards = 4
+elasticsearch_replicas = 0
+elasticsearch_index_prefix = graylog
+elasticsearch_analyzer = standard
+
+
+################
+#    MongoDB   #
+################
+
+mongodb_uri = mongodb://{{ mongodb_graylog_user }}:{{ mongodb_graylog_password }}@{% for host in groups['mongodb-opensearch'] %}{{ host }}:{{ mongodb_port }}{{ ',' if not loop.last else "" }}{% endfor %}/{{ mongodb_graylog_db }}?replicaSet={{ mongodb_repl_set_name }}
+mongodb_max_connections = 1000
+
+
+################
+# Configuration #
+################
+
+retention_strategy = delete  
+rotation_strategy = count
+allow_leading_wildcard_searches = true
+allow_highlighting = false
+output_batch_size = 500
+output_flush_interval = 1
+output_fault_count_threshold = 5
+output_fault_penalty_seconds = 30
+processbuffer_processors = {{ graylog_processbuffer_processors }}
+outputbuffer_processors = {{ graylog_outputbuffer_processors }}
+ring_size = 65536
+inputbuffer_ring_size = 65536
+inputbuffer_processors = {{ graylog_inputbuffer_processors }}
+inputbuffer_wait_strategy = blocking
+message_journal_enabled = true
+message_journal_max_size = {{ graylog_message_journal_max_size }}
+message_journal_dir = /var/lib/graylog-server/journal
+lb_recognition_period_seconds = 3
+
+################
+#  Prometheus  #
+################
+
+#prometheus_exporter_enabled = false
+#prometheus_exporter_bind_address = 127.0.0.1:9833
+#prometheus_exporter_mapping_file_path_core = prometheus-exporter-mapping-core.yml
+#prometheus_exporter_mapping_file_path_custom = prometheus-exporter-mapping-custom.yml
+#prometheus_exporter_mapping_file_refresh_interval = 60s
+

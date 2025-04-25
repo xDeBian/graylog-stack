@@ -1,0 +1,28 @@
+{{ ansible_managed | comment }}
+
+server.port: {{ kibana_server_port }}
+server.host: {{ kibana_server_host }}
+server.name: {{ kibana_server_name }}
+#server.publicBaseUrl: {{ kibana_server_publicBaseUrl }} # 7.10.x + შემდეგ გამოიყენება ეს პარამეტრი
+
+# SSL Certificate for Kibana
+server.ssl.enabled: {{ kibana_elasticsearch_ssl_enabled}}
+#server.ssl.certificate: "{{ kibana_server_ssl_certificate }}"
+#server.ssl.key: "{{ kiban_server_ssl_key }}"
+
+elasticsearch.username: {{ elasticsearch_username }}
+elasticsearch.password: {{ elasticsearch_password }}
+elasticsearch.requestHeadersWhitelist: ["Authorization", "securitytenant"]
+elasticsearch.customHeaders: {}
+
+# elasticsearch hosts
+elasticsearch.hosts: [
+ "http://{{ groups['elasticsearch'][0] }}:9200",
+ "http://{{ groups['elasticsearch'][1] }}:9200",
+ "http://{{ groups['elasticsearch'][2] }}:9200"
+]
+
+xpack.monitoring.enabled: true
+xpack.monitoring.ui.container.elasticsearch.enabled: true
+telemetry.enabled: false
+monitoring.ui.container.elasticsearch.enabled: true

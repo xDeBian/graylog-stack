@@ -1,0 +1,62 @@
+# --- Service Unhold Step ---
+- name: Unhold Graylog service
+  command: apt-mark unhold graylog-server
+  register: unhold_result
+  changed_when: "'was already not held' not in unhold_result.stdout"
+  ignore_errors: true
+
+# 1. Stop and disable Graylog service
+- name: Stop Graylog service
+  systemd:
+    name: graylog-server
+    state: stopped
+    enabled: no
+  ignore_errors: true
+
+# 2. Remove Graylog package
+- name: Remove Graylog package
+  apt:
+    name: graylog-server
+    state: absent
+
+# 3. Remove Graylog-related directories
+- name: Remove Graylog directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/graylog
+    - /var/log/graylog
+    - /var/lib/graylog
+    - /usr/share/graylog
+    - /etc/apt/sources.list.d/graylog.list
+
+# 4. Optionally remove dependencies and unused packages
+- name: Autoremove unnecessary packages
+  apt:
+    autoremove: yes
+
+# 5. Clean the apt cache
+- name: Clean apt cache
+  apt:
+    autoclean: yes
+
+# 6. Remove systemd service files (if any)
+- name: Remove Graylog systemd service file
+  file:
+    path: /etc/systemd/system/graylog-server.service
+    state: absent
+
+# 7. Purge the graylog-5.2-repository package
+- name: Purge Graylog 5.2 repository package
+  apt:
+    name: graylog-5.2-repository
+    state: absent
+    purge: yes
+
+# 8. Purge the graylog-6.1-repository package
+- name: Purge Graylog 6.1 repository package
+  apt:
+    name: graylog-6.1-repository
+    state: absent
+    purge: yes

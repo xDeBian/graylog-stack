@@ -1,0 +1,98 @@
+---
+# Playbook for managing Graylog version (upgrade or downgrade)
+- name: Stop Graylog service
+  service:
+    name: graylog-server
+    state: stopped
+
+- name: Find Graylog repo file in /etc/apt/sources.list.d
+  find:
+    paths: /etc/apt/sources.list.d
+    patterns: '*graylog*.list'
+  register: graylog_repo_files
+
+- name: Debug found Graylog repo file
+  debug:
+    msg: "Found Graylog repo file: {{ graylog_repo_files.files[0].path }}"
+
+- name: Update Graylog repo file with new URL
+  lineinfile:
+    path: "{{ graylog_repo_files.files[0].path }}"
+    regexp: '^deb https://packages.graylog2.org/repo/debian/ stable'
+    line: 'deb https://packages.graylog2.org/repo/debian/ stable {{ new_graylog_repo_version }}'
+  when: graylog_repo_files.matched > 0
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Unhold Graylog package before upgrade
+  command: apt-mark unhold graylog-server
+  when: ansible_facts.os_family == "Debian"
+
+- name: Get current Graylog version
+  command: dpkg-query -W -f='${Version}' graylog-server
+  register: current_graylog_version
+  ignore_errors: yes
+
+- name: Compare Graylog versions
+  set_fact:
+    is_downgrade: "{{ (current_graylog_version.stdout | regex_replace('-.*$', '') is version(new_graylog_version | regex_replace('-.*$', ''), '>')) }}"
+  when: current_graylog_version.rc == 0
+
+- name: Debug version comparison
+  debug:
+    msg: "Current version: {{ current_graylog_version.stdout }}, Target version: {{ new_graylog_version }}, Is downgrade: {{ is_downgrade | default(false) }}"
+  when: current_graylog_version.rc == 0
+
+- name: Install Graylog {{ new_graylog_version }} server (with downgrade if needed)
+  apt:
+    name: graylog-server={{ new_graylog_version }}
+    state: present
+    allow_downgrade: "{{ is_downgrade | default(false) }}"
+
+- name: Hold Graylog package at the desired version
+  command: apt-mark hold graylog-server
+
+- name: Ensure Graylog configuration directory exists
+  file:
+    path: /etc/graylog/server
+    state: directory
+    mode: '0755'
+
+- name: Backup existing Graylog configuration
+  command: cp -r /etc/graylog/server /etc/graylog/server.bak
+  when: ansible_facts.os_family == "Debian"
+
+- name: Check if backup exists
+  stat:
+    path: /etc/graylog/server.bak
+  register: backup_stat
+
+- name: Debug backup status
+  debug:
+    msg: "Backup directory exists: {{ backup_stat.stat.exists }}"
+
+- name: Restore Graylog configuration from backup
+  shell: cp -r /etc/graylog/server.bak/* /etc/graylog/server/
+  when: ansible_facts.os_family == "Debian"
+  ignore_errors: yes
+
+- name: Clean up backup directory
+  file:
+    path: /etc/graylog/server.bak
+    state: absent
+  when: ansible_facts.os_family == "Debian"
+
+- name: Start Graylog {{ new_graylog_repo_version }} service
+  service:
+    name: graylog-server
+    state: started
+
+- name: Get updated Graylog version
+  command: dpkg-query -W -f='${Version}' graylog-server
+  register: updated_graylog_version
+
+- name: Print version change
+  debug:
+    msg: "Graylog version changed from {{ current_graylog_version.stdout }} to {{ updated_graylog_version.stdout }}"

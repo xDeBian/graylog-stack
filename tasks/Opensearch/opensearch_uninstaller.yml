@@ -1,0 +1,98 @@
+
+- name: Stop OpenSearch service
+  systemd:
+    name: opensearch
+    state: stopped
+  ignore_errors: yes
+
+- name: Disable OpenSearch service
+  systemd:
+    name: opensearch
+    enabled: no
+  ignore_errors: yes
+
+- name: Remove OpenSearch package
+  apt:
+    name: opensearch
+    state: absent
+    purge: yes
+  ignore_errors: yes
+
+
+
+- name: Remove OpenSearch configuration directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/opensearch
+    - /usr/share/opensearch
+    - /var/lib/opensearch
+    - /var/log/opensearch
+  ignore_errors: yes
+
+- name: Find all OpenSearch related files and directories
+  find:
+    paths: 
+      - /opt
+      - /var
+      - /etc
+      - /usr/local
+    patterns: 
+      - "opensearch*"
+      - "opensearch-*"
+    recurse: yes
+  register: opensearch_files
+
+- name: Remove all found OpenSearch files and directories
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ opensearch_files.files }}"
+  ignore_errors: yes
+
+- name: Remove any remaining OpenSearch users
+  user:
+    name: opensearch
+    state: absent
+    remove: yes
+  ignore_errors: yes
+
+- name: Remove any remaining OpenSearch groups
+  group:
+    name: opensearch
+    state: absent
+  ignore_errors: yes
+
+- name: Clean apt cache
+  apt:
+    clean: yes
+  ignore_errors: yes
+
+- name: Remove OpenSearch systemd service files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/systemd/system/opensearch.service
+    - /usr/lib/systemd/system/opensearch.service
+  ignore_errors: yes
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+  ignore_errors: yes
+
+
+
+  # - name: Remove OpenSearch APT repository
+#   apt_repository:
+#     repo: "deb [signed-by=/usr/share/keyrings/opensearch-archive-keyring.gpg] https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_version | default('2.x') }}/apt stable main"
+#     state: absent
+#   ignore_errors: yes
+
+# - name: Remove OpenSearch GPG key
+#   file:
+#     path: /usr/share/keyrings/opensearch-archive-keyring.gpg
+#     state: absent
+#   ignore_errors: yes

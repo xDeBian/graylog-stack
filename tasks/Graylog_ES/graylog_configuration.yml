@@ -1,0 +1,25 @@
+
+# Add Graylog configuration file
+- name: Generate Graylog configuration from template
+  template:
+    src: graylog.conf.j2
+    dest: /etc/graylog/server/server.conf
+    owner: graylog
+    group: graylog
+    mode: '0644'
+
+# Restart Graylog servie
+- name: Restart Graylog 
+  service:
+    name: graylog-server
+    state: restarted
+
+# Get Graylog Service status
+- name: Get Graylog  Service Status
+  ansible.builtin.systemd:
+    name: "graylog-server.service"
+  register: graylog_service_status
+
+- debug:
+    var: graylog_service_status.status.ActiveState
+

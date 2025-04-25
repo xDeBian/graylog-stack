@@ -1,0 +1,79 @@
+- name: Resolve MongoDB IPs using getent
+  command: "getent hosts {{ item }}"
+  register: resolved_ips
+  with_items: "{{ groups['mongodb'] }}"
+  changed_when: false
+
+- name: Set MongoDB IP list
+  set_fact:
+    mongodb_ips: "{{ resolved_ips.results | map(attribute='stdout') | map('split', ' ') | map('first') | list }}"
+
+- name: Ensure MongoDB is running
+  systemd:
+    name: mongod
+    state: started
+  register: mongod_status
+  retries: 5
+  delay: 10
+  until: mongod_status.state == 'started'
+
+- name: Check if Replica Set is initialized
+  command: >
+    mongosh --host {{ mongodb_ips[0] }} --port {{ mongodb_port }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval '
+    db = db.getSiblingDB("admin");
+    try {
+      var status = rs.status();
+      if (status.ok === 1) {
+        print("REPLICASET_INITIALIZED");
+      } else {
+        print("REPLICASET_NOT_INITIALIZED");
+      }
+    } catch (e) {
+      print("REPLICASET_NOT_INITIALIZED");
+    }'
+  register: replica_status
+  changed_when: false
+  retries: 5
+  delay: 10
+  until: replica_status.rc == 0
+  ignore_errors: true
+
+- name: Initiate MongoDB Replica Set if not already initialized
+  shell: |
+    mongosh --host {{ mongodb_ips[0] }} --port {{ mongodb_port }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval '
+    db = db.getSiblingDB("admin");
+    rs.initiate({
+      _id: "{{ mongodb_repl_set_name }}",
+      members: [
+        { _id: 0, host: "{{ mongodb_ips[0] }}:{{ mongodb_port }}" },
+        { _id: 1, host: "{{ mongodb_ips[1] }}:{{ mongodb_port }}" },
+        { _id: 2, host: "{{ mongodb_ips[2] }}:{{ mongodb_port }}" }
+      ]
+    })'
+  when: "'REPLICASET_NOT_INITIALIZED' in replica_status.stdout"
+  register: replica_init
+  changed_when: "'\"ok\": 1' in replica_init.stdout or 'ok: 1' in replica_init.stdout"
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ mongodb_ips[0] }}"
+
+- name: Wait for replica set to stabilize
+  pause:
+    seconds: 10
+  when: "'REPLICASET_NOT_INITIALIZED' in replica_status.stdout"
+  run_once: true
+
+- name: Check final Replica Set status
+  command: >
+    mongosh --host {{ mongodb_ips[0] }} --port {{ mongodb_port }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval '
+    db = db.getSiblingDB("admin");
+    rs.status()'
+  register: final_status
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ mongodb_ips[0] }}"
+
+- name: Show Replica Set Status
+  debug:
+    msg: "MongoDB Replica Set '{{ mongodb_repl_set_name }}' is successfully initialized with primary at {{ mongodb_ips[0] }}"
+  when: "'REPLICASET_INITIALIZED' in replica_status.stdout or replica_init is succeeded"

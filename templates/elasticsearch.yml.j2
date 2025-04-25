@@ -1,0 +1,43 @@
+# Elasticsearch configuration template
+cluster.name: {{ elasticsearch_cluster }}
+node.name: {{ inventory_hostname }}
+
+{% if hostvars[inventory_hostname]['elasticsearch_role'] | default(elasticsearch_default_role) == 'master' %}
+node.roles: ["master"]
+{% else %}
+node.roles: ["data"]
+{% endif %}
+path:
+  repo:
+    - /etc/elasticsearch/backup
+    
+path.data: {{ elasticsearch_path_data }}
+path.logs: {{ elasticsearch_path_logs }}
+network.host: {{ elasticsearch_network_host }}
+http.port: {{ elasticsearch_http_port }}
+
+# Discovery settings
+discovery.seed_hosts: {{ elasticsearch_discovery_seed_hosts | to_json }}
+
+# მასტერ ნოდების სია
+cluster.initial_master_nodes: [
+{% for host in groups['elasticsearch'] %}
+{% if hostvars[host]['elasticsearch_role'] | default(elasticsearch_default_role) == 'master' %}
+"{{ host }}"{% if not loop.last %} {% endif %}
+{% endif %}
+{% endfor %}
+]
+
+# Memory settings
+bootstrap.memory_lock: {{ elasticsearch_bootstrap_memory_lock | lower }}
+
+{% if elasticsearch_ssl_enabled %}
+# Transport layer SSL settings
+xpack.security.enabled: true
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: certificate
+xpack.security.transport.ssl.client_authentication: required
+xpack.security.transport.ssl.keystore.path: {{ elasticsearch_ssl_keystore }}
+xpack.security.transport.ssl.truststore.path: {{ elasticsearch_ssl_truststore }}
+#ingest.geoip.downloader.enabled: false
+{% endif %}

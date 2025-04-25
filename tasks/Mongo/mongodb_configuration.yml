@@ -1,0 +1,59 @@
+- name: Create mongod group
+  group:
+    name: mongodb
+    state: present
+
+- name: Create mongod user
+  user:
+    name: mongodb
+    state: present
+    shell: /bin/false
+    group: mongodb
+    system: yes
+
+- name: Deploy MongoDB configuration without security
+  template:
+    src: mongodb_without_security.conf.j2
+    dest: /etc/mongod.conf
+    owner: mongodb
+    group: mongodb
+    mode: "0644"
+  register: mongo_config
+
+- name: Restart MongoDB if config changed
+  systemd:
+    name: mongod
+    state: restarted
+  when: mongo_config.changed
+
+- name: Create directory for MongoDB keyfile
+  file:
+    path: /etc/mongodb
+    state: directory
+    mode: '0755'
+    owner: mongodb
+    group: mongodb
+  become: yes
+
+- name: Copy MongoDB keyfile to servers
+  copy:
+    src: files/mongodb/mongodb-keyfile
+    dest: /etc/mongodb/mongodb-keyfile
+    mode: '0600'
+    owner: mongodb
+    group: mongodb
+  become: yes
+
+- name: Restart MongoDB
+  service:
+    name: mongod
+    state: restarted
+  become: yes
+
+- name: Get MongoDB Service Status
+  ansible.builtin.systemd:
+    name: "mongod.service"
+  register: mongodb_service_status
+
+- debug:
+    var: mongodb_service_status.status.ActiveState

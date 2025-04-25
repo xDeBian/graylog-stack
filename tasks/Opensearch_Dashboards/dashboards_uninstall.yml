@@ -1,0 +1,63 @@
+- name: Stop OpenSearch Dashboards service
+  systemd:
+    name: opensearch-dashboards
+    state: stopped
+  ignore_errors: yes
+
+- name: Disable OpenSearch Dashboards service
+  systemd:
+    name: opensearch-dashboards
+    enabled: no
+  ignore_errors: yes
+
+- name: Remove OpenSearch Dashboards package
+  apt:
+    name: opensearch-dashboards
+    state: absent
+    purge: yes
+  ignore_errors: yes
+
+- name: Remove OpenSearch Dashboards configuration and data directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/opensearch-dashboards
+    - /usr/share/opensearch-dashboards
+    - /var/lib/opensearch-dashboards
+    - /var/log/opensearch-dashboards
+  ignore_errors: yes
+
+- name: Find all OpenSearch Dashboards related files and directories
+  find:
+    paths:
+      - /opt
+      - /var
+      - /etc
+      - /usr/local
+    patterns:
+      - "opensearch-dashboards*"
+      - "opensearch-dashboards-*"
+    recurse: yes
+  register: dashboards_files
+
+- name: Remove all found OpenSearch Dashboards files and directories
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ dashboards_files.files }}"
+  ignore_errors: yes
+
+- name: Remove OpenSearch Dashboards systemd service files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/systemd/system/opensearch-dashboards.service
+    - /usr/lib/systemd/system/opensearch-dashboards.service
+  ignore_errors: yes
+
+- name: Reload systemd after removing OpenSearch Dashboards
+  systemd:
+    daemon_reload: yes
+  ignore_errors: yes

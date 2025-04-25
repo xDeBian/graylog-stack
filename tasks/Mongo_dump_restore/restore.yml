@@ -1,0 +1,80 @@
+---
+- name: Install required packages
+  apt:
+    name:
+      - awscli
+    state: present
+  become: yes
+
+- name: Create restore script
+  copy:
+    dest: "/usr/local/bin/mongo_s3_restore.sh"
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      
+      # Set AWS CLI configuration
+      export AWS_ACCESS_KEY_ID={{ aws_access_key }}
+      export AWS_SECRET_ACCESS_KEY={{ aws_secret_access_key }}
+      export AWS_DEFAULT_REGION={{ aws_default_region }}
+      
+      # Find the latest backup file from S3
+      LATEST_BACKUP=$(aws s3 ls s3://{{ s3_bucket }}/ --recursive | grep "graylog_backup_" | sort | tail -n 1 | awk '{print $4}')
+      
+      if [ -z "$LATEST_BACKUP" ]; then
+        echo "No backup found in S3."
+        exit 1
+      fi
+      
+      BACKUP_FILENAME=$(basename "$LATEST_BACKUP")
+      echo "Latest backup found: $BACKUP_FILENAME"
+      
+      # Create temporary directory for restoration
+      TMP_DIR="{{ backup_dir }}/restore_tmp"
+      mkdir -p "$TMP_DIR"
+      
+      # Download the latest backup from S3
+      echo "Downloading backup from S3..."
+      aws s3 cp "s3://{{ s3_bucket }}/$LATEST_BACKUP" "$TMP_DIR/$BACKUP_FILENAME"
+      
+      if [ ! -f "$TMP_DIR/$BACKUP_FILENAME" ]; then
+        echo "Failed to download backup file."
+        rm -rf "$TMP_DIR"
+        exit 1
+      fi
+      
+      # Extract the backup archive
+      echo "Extracting backup archive..."
+      tar -xzf "$TMP_DIR/$BACKUP_FILENAME" -C "$TMP_DIR/"
+      
+      # Get the timestamp directory name from the filename (removing 'graylog_backup_' prefix and '.tar.gz' suffix)
+      TIMESTAMP=$(echo "$BACKUP_FILENAME" | sed 's/graylog_backup_//g' | sed 's/\.tar\.gz//g')
+      
+      # Verify extracted directory exists
+      if [ ! -d "$TMP_DIR/$TIMESTAMP" ]; then
+        echo "Extraction failed, directory $TMP_DIR/$TIMESTAMP not found."
+        ls -la "$TMP_DIR"
+        rm -rf "$TMP_DIR"
+        exit 1
+      fi
+      
+      # Restore MongoDB backup
+      echo "Restoring MongoDB data from $TMP_DIR/$TIMESTAMP..."
+      mongorestore --host={{ groups['mongodb-opensearch'][0] }} --port={{ mongodb_port }} --username={{ mongodb_user }} --password={{ mongodb_password }} --db={{ mongodb_db }} "$TMP_DIR/$TIMESTAMP/{{ mongodb_db }}"
+      
+      RESTORE_STATUS=$?
+      if [ $RESTORE_STATUS -eq 0 ]; then
+        echo "MongoDB restore completed successfully."
+      else
+        echo "MongoDB restore failed with status: $RESTORE_STATUS"
+      fi
+      
+      # # Clean up
+      # echo "Cleaning up temporary files..."
+      # rm -rf "$TMP_DIR"
+      
+      # exit $RESTORE_STATUS
+
+- name: Run restore script
+  command: /usr/local/bin/mongo_s3_restore.sh
+  delegate_to: "{{ groups['mongodb-opensearch'][0] }}"

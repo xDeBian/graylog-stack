@@ -1,0 +1,166 @@
+# Disable swap temporarily
+- name: Disable swap temporarily
+  command: swapoff -a
+  become: yes
+
+# Remove swap entry from /etc/fstab
+- name: Remove swap entry from /etc/fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^\s*([^#]\S+\s+swap\s+sw.*)$'
+    replace: '# \1'
+  become: yes
+
+#################
+## Create USER ## 
+#################
+
+# Create Elasticsearch superuser with root user
+- name: Create Elasticsearch superuser with root user
+  command: "/usr/share/elasticsearch/bin/elasticsearch-users useradd {{ elasticsearch_username }} -p '{{ elasticsearch_password }}' -r superuser"
+  become: yes
+  when: ansible_user == "root"
+  ignore_errors: true
+
+# Change ownership of the users file to elasticsearch user
+- name: Change ownership of the users file to elasticsearch user
+  file:
+    path: /etc/elasticsearch/users
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0660'
+  become: yes
+
+# Change ownership of the users_roles file to elasticsearch user
+- name: Change ownership of the users_roles file to elasticsearch user
+  file:
+    path: /etc/elasticsearch/users_roles
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0660'
+  become: yes
+
+########################
+## Create Certificate ##
+########################
+
+- name: Create certificates directory for Elasticsearch
+  file:
+    path: "/etc/elasticsearch/certs"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0755'
+
+- name: Copy elasticsearch CA certificate
+  copy:
+    src: files/elasticsearch_ssl/elastic-stack-ca.p12
+    dest: "/etc/elasticsearch/certs/elastic-stack-ca.p12"
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0660'
+
+- name: Generate server certificate for elasticsearch
+  shell: >
+    /usr/share/elasticsearch/bin/elasticsearch-certutil cert
+    --ca /etc/elasticsearch/certs/elastic-stack-ca.p12
+    --out /etc/elasticsearch/certs/server-cert.p12
+    --pass ""
+    --ca-pass ""
+  args:
+    creates: "/etc/elasticsearch/certs/server-cert.p12"
+
+- name: Modify elasticsearch server certificate permissions
+  file:
+    path: "/etc/elasticsearch/certs/server-cert.p12"
+    mode: '0660'
+    owner: elasticsearch
+    group: elasticsearch
+
+
+#############################
+## Configure Elasticsearch ##
+#############################
+
+# Configure Elasticsearch settings
+- name: Configure Elasticsearch settings
+  template:
+    src: elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    mode: '0644'
+
+# Configure JVM options
+- name: Configure JVM options
+  template:
+    src: jvm.options.j2
+    dest: /etc/elasticsearch/jvm.options
+    mode: '0644'
+
+#Create backup directory
+- name: Create backup directory for Elasticsearch
+  file:
+    path: "/etc/elasticsearch/backup"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0755'
+
+# Change ownership of /etc/elasticsearch recursively
+- name: Change ownership ES Fiels
+  file:
+    path: /etc/elasticsearch
+    owner: root
+    group: elasticsearch
+    mode: '0755'
+    recurse: yes
+
+# Change ownership of /etc/elasticsearch/certs recursively
+- name: Change ownership Certificates 
+  file:
+    path: /etc/elasticsearch/certs
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0755'
+    recurse: yes
+
+- name: daemon reload
+  systemd:
+    daemon_reload: yes
+
+# Start and enable Elasticsearch service
+- name: Start and enable Elasticsearch service
+  systemd:
+    name: elasticsearch
+    state: started
+    enabled: yes
+
+
+- name: Set data nodes list
+  set_fact:
+    data_nodes: 
+      - "{{ groups['elasticsearch'][1] }}"
+      - "{{ groups['elasticsearch'][2] }}"
+
+- name: Clear nodes folder
+  file:
+    path: "/var/lib/elasticsearch/nodes/*"
+    state: absent
+  when: inventory_hostname == item
+  loop: "{{ data_nodes }}"
+
+- name: Restart Elasticsearch on data nodes
+  systemd:
+    name: elasticsearch
+    state: restarted
+    enabled: yes
+  when: inventory_hostname == item
+  loop: "{{ data_nodes }}"
+
+# Service Status on all server Elasticsearch
+- name: Get Elasticsearch Service Status
+  ansible.builtin.systemd:
+    name: "elasticsearch.service"
+  register: elasticsearch_service_status
+
+- debug:
+    var: elasticsearch_service_status.status.ActiveState

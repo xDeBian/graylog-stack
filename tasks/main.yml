@@ -1,0 +1,102 @@
+  ##############
+  #    Mongo   #
+  ##############
+
+# - name: Include MongoDB installation tasks
+#   include_tasks: tasks/Mongo/mongodb_uninstall.yml
+
+# - name: Include MongoDB installation tasks
+#   include_tasks: tasks/Mongo/mongodb_install.yml
+
+# - name: Include MongoDB configuration tasks
+#   include_tasks: tasks/Mongo/mongodb_configuration.yml
+
+# - name: Include MongoDB Admin tasks
+#   include_tasks: tasks/Mongo/mongodb_create_admin_user.yml
+
+# - name: Include MongoDB Replication tasks
+#   include_tasks: tasks/Mongo/mongodb_replication.yml
+
+# - name: Include MongoDB Graylog tasks
+#   include_tasks: tasks/Mongo/mongodb_create_graylog_user.yml
+
+
+  ##############
+  # Mongo DUMP #
+  ##############
+
+# - name: Include MongoDB Dump tasks
+#   include_tasks: tasks/Mongo_dump/dump.yml
+
+  #################
+  # Mongo restore #
+  #################
+
+# - name: Include MongoDB Restore tasks
+#   include_tasks: tasks/Opensearch/restore_mongodb.yml
+
+
+  #################
+  # ElasticSearch #
+  #################
+# - name: Include Elasticsearch Create Admin user tasks
+#   include_tasks: tasks/Elasticsearch/elasticsearch_uninstaller.yml
+
+# - name: Include Elasticsearch install  tasks
+#   include_tasks: tasks/Elasticsearch/elasticsearch_install.yml
+
+# - name: Include Elasticsearch configuration tasks
+#   include_tasks: tasks/Elasticsearch/elasticsearch_configuration.yml
+
+# - name: Include Elasticsearch Metrocbeat tasks
+#   include_tasks: tasks/Elasticsearch/elasticsearch_metricbeat.yml
+
+
+  #################
+  # OpenSearch   #
+  #################
+# - name: Include OpenSearch uninstall
+#   include_tasks: tasks/Opensearch/opensearch_uninstaller.yml
+
+# - name: Include OpenSearch install  tasks
+#   include_tasks: tasks/Opensearch/opensearch_install.yml
+
+# - name: Include OpenSearch configuration tasks
+#   include_tasks: tasks/Opensearch/opensearch_configuration.yml
+
+  ##########################
+  # OpenSearch Dashboards  #
+  ##########################
+# - name: Include Opensearch Dashboards Install
+#   include_tasks: tasks/Opensearch_Dashboards/dashboards_install.yml
+
+
+
+# #   ###########
+# #   # Graylog #
+# #   ##########
+# - name: Include Graylog configuration tasks
+#   include_tasks: tasks/Graylog/graylog_uninstall.yml
+
+# - name: Include Graylog installation tasks
+#   include_tasks: tasks/Graylog/graylog_install.yml
+
+# - name: Include Graylog configuration tasks
+#   include_tasks: tasks/Graylog/graylog_configuration.yml
+
+
+  ###########
+  # Kibana  #
+  ###########
+
+# - name: Include Kibana uninstaller tasks
+#   include_tasks: tasks/Kibana/kibana_uninstaller.yml
+
+# - name: Include Kibana installation tasks
+#   include_tasks: tasks/Kibana/kibana_install.yml
+
+# - name: Include Kibana configuration tasks
+#   include_tasks: tasks/Kibana/kibana_create_cert.yml
+
+# - name: Include Kibana configuration tasks
+#   include_tasks: tasks/Kibana/kibana_configuration.yml

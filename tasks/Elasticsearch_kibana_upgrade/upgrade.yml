@@ -1,0 +1,325 @@
+---
+# tasks/Elasticsearch_kibana_upgrade/upgrade.yml
+- name: Check Elasticsearch cluster health before upgrade
+  hosts: elasticsearch
+  become: true
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Check cluster health
+      uri:
+        url: http://localhost:9200/_cluster/health
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: cluster_health
+      failed_when: (cluster_health.json.status != "green")
+      when: elasticsearch_role is defined
+      
+    - name: Display cluster health status
+      debug:
+        var: cluster_health.json
+      when: elasticsearch_role is defined
+
+    - name: Check Elasticsearch version
+      uri:
+        url: http://localhost:9200
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: es_version
+      when: elasticsearch_role is defined
+      
+    - name: Display current Elasticsearch version
+      debug:
+        var: es_version.json.version.number
+      when: elasticsearch_role is defined
+
+- name: Prepare Elasticsearch for upgrade
+  hosts: elasticsearch
+  become: true
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Backup Elasticsearch configuration
+      copy:
+        src: /etc/elasticsearch/elasticsearch.yml
+        dest: /etc/elasticsearch/elasticsearch.yml.bak
+        remote_src: yes
+
+    - name: Disable shard allocation
+      uri:
+        url: http://localhost:9200/_cluster/settings
+        method: PUT
+        body_format: json
+        body: |
+          {
+            "persistent": {
+              "cluster.routing.allocation.enable": "none"
+            }
+          }
+        status_code: 200
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      when: elasticsearch_role is defined and elasticsearch_role == "master"
+
+    - name: Perform a synced flush
+      uri:
+        url: http://localhost:9200/_flush/synced
+        method: POST
+        status_code: 200
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      when: elasticsearch_role is defined and elasticsearch_role == "master"
+
+- name: Upgrade Elasticsearch nodes one at a time
+  hosts: elasticsearch
+  become: true
+  serial: 1
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Stop Elasticsearch service
+      systemd:
+        name: elasticsearch
+        state: stopped
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+            
+    - name: Install Elasticsearch 7.17.28
+      apt:
+        name: elasticsearch=7.17.28
+        state: present
+
+    - name: Restore original Elasticsearch configuration
+      copy:
+        src: /etc/elasticsearch/elasticsearch.yml.bak
+        dest: /etc/elasticsearch/elasticsearch.yml
+        remote_src: yes
+
+    - name: Start Elasticsearch service
+      systemd:
+        name: elasticsearch
+        state: started
+        daemon_reload: yes
+
+    - name: Wait for Elasticsearch to start
+      uri:
+        url: http://localhost:9200
+        method: GET
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: es_up
+      until: es_up.status == 200
+      retries: 60
+      delay: 5
+
+    - name: Check new Elasticsearch version
+      uri:
+        url: http://localhost:9200
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: new_es_version
+      
+    - name: Display new Elasticsearch version
+      debug:
+        var: new_es_version.json.version.number
+
+    - name: Wait for node to join cluster
+      uri:
+        url: http://localhost:9200/_cat/nodes?v
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: es_nodes
+      until: ansible_hostname in es_nodes.content | default("")
+      retries: 30
+      delay: 10
+
+- name: Re-enable shard allocation after all nodes are upgraded
+  hosts: elasticsearch
+  become: true
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Enable shard allocation
+      uri:
+        url: http://localhost:9200/_cluster/settings
+        method: PUT
+        body_format: json
+        body: |
+          {
+            "persistent": {
+              "cluster.routing.allocation.enable": "all"
+            }
+          }
+        status_code: 200
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      when: elasticsearch_role is defined and elasticsearch_role == "master"
+
+    - name: Wait for cluster to return to green status
+      uri:
+        url: http://localhost:9200/_cluster/health
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: cluster_health_after
+      until: cluster_health_after.json.status == "green"
+      retries: 60
+      delay: 10
+      when: elasticsearch_role is defined and elasticsearch_role == "master"
+
+- name: Upgrade Kibana
+  hosts: kibana
+  become: true
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Backup Kibana configuration
+      copy:
+        src: /etc/kibana/kibana.yml
+        dest: /etc/kibana/kibana.yml.bak
+        remote_src: yes
+
+    - name: Stop Kibana service
+      systemd:
+        name: kibana
+        state: stopped
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+            
+    - name: Install Kibana 7.17.28
+      apt:
+        name: kibana=7.17.28
+        state: present
+
+    - name: Restore original Kibana configuration
+      copy:
+        src: /etc/kibana/kibana.yml.bak
+        dest: /etc/kibana/kibana.yml
+        remote_src: yes
+
+    - name: Add server.publicBaseUrl to Kibana config
+      lineinfile:
+        path: /etc/kibana/kibana.yml
+        line: "server.publicBaseUrl: http://{{ ansible_hostname }}:5601"
+        state: present
+
+    - name: Start Kibana service
+      systemd:
+        name: kibana
+        state: started
+        daemon_reload: yes
+
+    - name: Wait for Kibana to start
+      uri:
+        url: "http://{{ ansible_hostname }}:5601/api/status"
+        method: GET
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: kibana_up
+      until: kibana_up.status == 200
+      retries: 60
+      delay: 5
+
+- name: Verify Elasticsearch upgrade success
+  hosts: elasticsearch
+  become: true
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Check Elasticsearch version on all nodes
+      uri:
+        url: http://localhost:9200
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: final_es_version
+      
+    - name: Display final Elasticsearch versions
+      debug:
+        msg: "Node {{ ansible_hostname }} running Elasticsearch version {{ final_es_version.json.version.number }}"
+      when: final_es_version is success
+
+    - name: Verify cluster health is green
+      uri:
+        url: http://localhost:9200/_cluster/health
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: final_cluster_health
+      when: elasticsearch_role is defined and elasticsearch_role == "master"
+      
+    - name: Display final cluster health
+      debug:
+        var: final_cluster_health.json
+      when: elasticsearch_role is defined and elasticsearch_role == "master" and final_cluster_health is success
+
+    - name: Check indices status
+      uri:
+        url: http://localhost:9200/_cat/indices?v
+        method: GET
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+        return_content: yes
+      register: indices_status
+      when: elasticsearch_role is defined and elasticsearch_role == "master"
+      
+    - name: Display indices status
+      debug:
+        var: indices_status.content
+      when: elasticsearch_role is defined and elasticsearch_role == "master" and indices_status is success
+
+- name: Verify Kibana upgrade success
+  hosts: kibana
+  become: true
+  vars:
+    es_username: "admin"
+    es_password: "Password1"
+  tasks:
+    - name: Check Kibana version
+      uri:
+        url: "http://{{ ansible_hostname }}:5601/api/status"
+        method: GET
+        return_content: yes
+        user: "{{ es_username }}"
+        password: "{{ es_password }}"
+        force_basic_auth: yes
+      register: final_kibana_version
+      
+    - name: Display final Kibana version
+      debug:
+        msg: "Node {{ ansible_hostname }} running Kibana version {{ final_kibana_version.json.version.number }}"
+      when: final_kibana_version is success

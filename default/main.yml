@@ -1,0 +1,166 @@
+#################
+#    Graylog    #
+#################
+# https://packages.graylog2.org/repo/packages/graylog-6.1-repository_latest.deb
+
+graylog_repo_version: "5.2"
+graylog_version: "5.2.6-1"
+graylog_repo_url: "https://packages.graylog2.org/repo/packages/graylog-{{ graylog_repo_version }}-repository_latest.deb"
+graylog_listen_port: "9000"
+graylog_root_username: "admin"
+graylog_password_secret: "9XMfK2JdHPJDQs9CwaSDnXQapO4friySfKvywbh5wXh5YmcjODYnfy4BRwM3brLXPAd5cekmwXIpSR3DMdDvLPY3017nbf4T" 
+graylog_root_password_sha2: "19513fdc9da4fb72a4a05eb66917548d3c90ff94d5419e1f2363eea89dfee1dd" #Password1
+graylog_root_timezone: "Asia/Tbilisi"
+graylog_node_id_file: "/etc/graylog/server/node-id"
+graylog_bin_dir: "/usr/share/graylog-server/bin"
+graylog_data_dir: "/var/lib/graylog-server"
+graylog_plugin_dir: "/usr/share/graylog-server/plugin"
+graylog_http_bind_address: "{{ ansible_default_ipv4.address }}:{{ graylog_listen_port }}"
+graylog_publish_uri: "http://{{ ansible_default_ipv4.address }}:{{ graylog_listen_port }}/"
+graylog_http_external_uri: "http://{{ inventory_hostname }}/"
+graylog_is_leader: "false"
+
+###############################
+#    Graylog Server config    #
+###############################
+graylog_http_max_header_size: "16384"
+graylog_http_enable_tls: "false"
+graylog_jvm_heap_size: "16"
+graylog_processbuffer_processors: "10"
+graylog_outputbuffer_processors: "4"
+graylog_inputbuffer_processors: "6"
+graylog_message_journal_max_size: "1gb"
+
+###############################
+# Upgrade Graylog 5.x to 6.1  #
+###############################
+# new_graylog_repo_version: "6.1"
+# new_graylog_version: "6.1.8-1"
+new_graylog_repo_version: "5.2"
+new_graylog_version: "5.2.6-1"
+
+
+#################
+#    Kibana     #
+#################
+kibana_version: "7.10.0"
+kibana_server_port: "5601"
+kibana_server_host: "{{ groups['kibana'][0] }}"
+kibana_server_name: "Kibana"
+kibana_server_publicBaseUrl: "http://{{ groups['kibana'][0] }}:{{ kibana_server_port }}"
+kibana_server_memory: "2048"
+kibana_server_ssl_certificate: "/etc/kibana/certs/certificate.crt"
+kiban_server_ssl_key: /etc/kibana/certs/key.key"
+kibana_elasticsearch_ssl_enabled : false
+
+#################
+#    MONGODB    #
+#################
+baselinux_repo_server: "https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse"
+mongodb_keyring_name: "mongodb-keyring.gpg"
+mongodb_keyring_path: "/usr/share/keyrings/{{mongodb_keyring_name}}"
+mongodb_version: "6.0.20"
+mongodb_repo: "jammy-ubuntu-mongo6-remote jammy/mongodb-org/6.0 multiverse"
+mongodb_host: "{{ ansible_default_ipv4.address }}"
+mongodb_user: "admin"
+mongodb_password: "Password1"
+mongodb_repl_set_name: "rs0"
+mongodb_uri: "mongodb://{{ mongodb_user }}:{{ mongodb_password }}@{{ groups['mongodb'][0] }}:27017/graylog"
+mongodb_bind_ip: "0.0.0.0"
+mongodb_port: "27017"
+mongodb_enable_auth: false
+mongodb_graylog_user: "graylog"
+mongodb_graylog_password: "Password1"
+mongodb_graylog_db: "graylog"
+
+#################
+# ElasticSearch #
+#################
+elasticsearch_version: "7.10.0"
+elasticsearch_repo_url: "https://artifacts.elastic.co/packages/7.x/apt stable main"
+elasticsearch_repo_key: "https://artifacts.elastic.co/GPG-KEY-elasticsearch"
+elasticsearch_cluster:  elasticsearch-cluster
+elasticsearch_node_name: '{{ inventory_hostname }}'
+elasticsearch_path_data: /var/lib/elasticsearch
+elasticsearch_path_logs: /var/log/elasticsearch
+elasticsearch_network_host: 0.0.0.0
+elasticsearch_http_port: 9200
+elasticsearch_bootstrap_memory_lock: false
+elasticsearch_privatekey_passphrase: "Password1"
+elasticsearch_username: "admin"
+elasticsearch_password: "Password1"
+elasticsearch_user_path: "/etc/elasticsearch/users"
+
+# Dynamic hosts based on Ansible inventory
+elasticsearch_discovery_seed_hosts: "{{ groups['elasticsearch'] }}"
+
+elasticsearch_cluster_initial_master_nodes:
+  - "{{ groups['elasticsearch'][0] }}"
+
+# Optional: For securing communication, you can add SSL settings if needed.
+elasticsearch_xpack_security_enabled: true
+elasticsearch_ssl_enabled: true
+elsticsearch_verification_mode: "certificate"
+elasticsearch_client_authentication: "required"
+elasticsearch_ssl_truststore: "/etc/elasticsearch/certs/elastic-stack-ca.p12"
+elasticsearch_ssl_keystore: "/etc/elasticsearch/certs/server-cert.p12"
+elasticsearch_ssl_password: "Password1"
+# JVM.Options setting
+jvm_Xms_size: "2g"
+jvm_Xmx_size: "2g"
+
+metricbeat_version: "7.17.28"
+
+#################
+# OpenSearch    #
+################# 
+opensearch_version: "2.19.1"
+opensearch_repo_url: "https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
+opensearch_repo_key: "https://artifacts.opensearch.org/publickeys/opensearch.pgp"
+opensearch_cluster:  opensearch-cluster
+opensearch_node_name: '{{ inventory_hostname }}'
+opensearch_path_data: /var/lib/opensearch
+opensearch_path_logs: /var/log/opensearch
+opensearch_network_host: 0.0.0.0
+opensearch_http_port: 9200
+opensearch_username: "admin"
+opensearch_password: "Password1"
+opensearch_user_path: "/etc/opensearch/users"
+
+# Dynamic hosts based on Ansible inventory
+opensearch_discovery_seed_hosts: "{{ groups['opensearch'] }}"
+
+opensearch_cluster_initial_master_nodes:
+  - "{{ groups['opensearch'][0] }}"
+
+# Optional: For securing communication, you can add SSL settings if needed.
+opensearch_xpack_security_enabled: true
+opensearch_ssl_enabled: true
+opensearch_verification_mode: "certificate"
+opensearch_client_authentication: "required"
+opensearch_ssl_truststore: "/etc/elasticsearch/certs/opensearch-stack-ca.p12"
+opensearch_ssl_keystore: "/etc/elasticsearch/certs/server-cert.p12"
+opensearch_ssl_password: "Password1"
+
+########################
+# OpenSearch Dashboards#
+######################## 
+opensearch_dashboards_version: "2.19.1"
+opensearch_dashboards_server_port: 5601
+opensearch_dashboards_server_host: 0.0.0.0
+opensearch_dashboards_user: kibanaserver
+opensearch_dashboards_password: kibanaserver
+
+#################
+# MONGODB DUMP  #
+#################
+
+aws_access_key: "test"
+aws_secret_access_key: "test"
+aws_default_region: "eu-central-1"
+backup_dir: "/tmp/graylog_backup"
+mongodb_port: 27017
+mongodb_db: "graylog"
+mongodb_user: "graylog"
+mongodb_password: "Password1"
+s3_bucket: "graylog-mongodump"

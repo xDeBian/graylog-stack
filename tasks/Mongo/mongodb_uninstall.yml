@@ -1,0 +1,59 @@
+- name: Stop MongoDB service
+  systemd:
+    name: mongod
+    state: stopped
+  ignore_errors: yes
+
+- name: Disable MongoDB service
+  systemd:
+    name: mongod
+    enabled: no
+  ignore_errors: yes
+
+- name: Remove MongoDB packages
+  apt:
+    name: mongodb-org
+    state: absent
+    purge: yes
+    autoremove: yes
+
+- name: Remove MongoDB data directory
+  file:
+    path: /var/lib/mongodb
+    state: absent
+
+- name: Remove MongoDB log directory
+  file:
+    path: /var/log/mongodb
+    state: absent
+
+- name: Remove MongoDB configuration files
+  file:
+    path: /etc/mongod.conf
+    state: absent
+
+- name: Remove MongoDB configuration folder
+  file:
+    path: /etc/mongodb
+    state: absent
+
+
+- name: Remove user 'mongod' from all groups
+  user:
+    name: mongodb
+    groups: mongodb
+    append: no
+  ignore_errors: yes
+
+- name: Remove MongoDB group
+  group:
+    name: mongodb
+    state: absent
+  ignore_errors: yes
+
+- name: Remove MongoDB user
+  user:
+    name: mongodb
+    state: absent
+  ignore_errors: yes
+

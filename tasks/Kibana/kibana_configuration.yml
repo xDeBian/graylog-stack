@@ -1,0 +1,59 @@
+- name: Set cap_net_bind_service=+epi on Kibana binaries
+  capabilities:
+    path: "{{ item }}"
+    capability: cap_net_bind_service=+epi
+    state: present
+  with_items:
+    - "/usr/share/kibana/bin/kibana"
+    - "/usr/share/kibana/bin/kibana-plugin"
+    - "/usr/share/kibana/bin/kibana-keystore"
+    - "/usr/share/kibana/node/bin/node"
+
+- name: Check Kibana host
+  debug:
+    var: "{{ groups['kibana'][0] }}"
+
+- name: Ensure correct permissions for Kibana files
+  file:
+    path: "{{ item }}"
+    owner: kibana
+    group: kibana
+    recurse: yes
+  with_items:
+    - /etc/kibana
+    - /var/lib/kibana
+    - /var/log/kibana
+    - /usr/share/kibana
+    - /var/run/kibana
+
+- name: Configure Kibana settings
+  template:
+    src: kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    owner: root
+    group: kibana
+    mode: '0640'
+
+- name: copy node options
+  template:
+    src: node.options.j2
+    dest: /etc/kibana/node.options
+    owner: root
+    group: kibana
+    mode: '0640'
+
+# Restart Kibana service
+- name: Restart Kibana service
+  systemd:
+    name: "kibana.service"
+    state: started
+    enabled: yes
+
+# Check Kibana service status
+- name: Get Kibana Service Status
+  ansible.builtin.systemd:
+    name: "kibana.service"
+  register: kibana_service_status
+
+- debug:
+    var: kibana_service_status.status.ActiveState

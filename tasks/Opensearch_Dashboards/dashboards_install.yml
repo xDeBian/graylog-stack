@@ -1,0 +1,115 @@
+# Create opensearch-dashboards group
+- name: Create opensearch group
+  group:
+    name: opensearch-dashboards
+    state: present
+
+# Create opensearch-dashboards user
+- name: Create opensearch user
+  user:
+    name: opensearch-dashboards
+    group: opensearch-dashboards
+    shell: /bin/bash
+    create_home: no
+    state: present
+
+# Update APT package list and install dependencies
+- name: Install required packages
+  apt:
+    name:
+      - lsb-release
+      - ca-certificates
+      - curl
+      - gnupg2
+    state: present
+    update_cache: yes
+
+# Download and add opensearch-dashboards GPG key
+- name: Download and add opensearch-dashboards GPG key
+  shell: |
+    curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/opensearch-keyring
+  args:
+    executable: /bin/bash
+
+# Add opensearch-dashboards repository
+- name: Add opensearch-dashboards APT repository
+  shell: |
+    echo "deb [signed-by=/usr/share/keyrings/opensearch-keyring] https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.x/apt stable main" | sudo tee /etc/apt/sources.list.d/opensearch-dashboards-2.x.list
+  args:
+    executable: /bin/bash
+
+# Update APT package list
+- name: Update APT package list
+  apt:
+    update_cache: yes
+
+# Install opensearch-dashboards
+- name: Install opensearch-dashboards version {{ opensearch_dashboards_version }}
+  apt:
+    name: "opensearch-dashboards={{ opensearch_dashboards_version }}"
+    state: present
+
+# Configure opensearch-dashboards settings
+- name: Configure opensearch-dashboards settings
+  template:
+    src: opensearch_dashboards.yml.j2
+    dest: /etc/opensearch-dashboards/opensearch_dashboards.yml
+    owner: opensearch-dashboards
+    group: opensearch-dashboards
+    mode: '0644'
+
+# Change ownership of /etc/opensearch-dashboards recursively
+- name: Change ownership of opensearch-dashboards files
+  file:
+    path: /etc/opensearch-dashboards
+    owner: opensearch-dashboards
+    group: opensearch-dashboards
+    mode: '0755'
+    recurse: yes
+
+# Create ssl directory for opensearch-dashboards
+- name: Create ssl directory for opensearch-dashboards
+  file:
+    path: "/etc/opensearch-dashboards/ssl"
+    state: directory
+    owner: opensearch-dashboards
+    group: opensearch-dashboards
+    mode: '0755'
+
+# Copy ssl files in opensearch-dashboards directory
+- name: Copy SSL certificates
+  copy:
+    src: "files/os_dashboards_ssl/{{ item }}"
+    dest: "/etc/opensearch-dashboards/ssl/{{ item }}"
+    owner: opensearch-dashboards
+    group: opensearch-dashboards
+    mode: '0644'
+  loop:
+    - server.crt
+    - server.key
+
+# Modify ExecStart in opensearch-dashboards service file
+- name: Update ExecStart in opensearch-dashboards service file
+  lineinfile:
+    path: /lib/systemd/system/opensearch-dashboards.service
+    regexp: '^ExecStart='
+    line: 'ExecStart=/usr/share/opensearch-dashboards/bin/opensearch-dashboards --config /etc/opensearch-dashboards/opensearch_dashboards.yml'
+    backup: yes
+
+# Reload systemd to apply the changes
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+# Enable OpenSearch Dashboards service
+- name: Enable OpenSearch Dashboards service
+  systemd:
+    name: opensearch-dashboards
+    enabled: yes
+    state: started
+
+# Restart OpenSearch Dashboards service to apply new configuration
+- name: Restart OpenSearch Dashboards
+  systemd:
+    name: opensearch-dashboards
+    state: restarted

@@ -1,0 +1,42 @@
+# Kibana repository setup tasks
+- name: Add Elasticsearch GPG key
+  shell: wget -qO - {{ elasticsearch_repo_key }} | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/elasticsearch-keyring.gpg
+
+- name: Install apt-transport-https
+  apt:
+    name: apt-transport-https
+    state: present
+    update_cache: yes
+
+- name: Add Kibana repository
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] {{ elasticsearch_repo_url }}"
+    state: present
+
+- name: Update repo cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+# Create Kibana user and group
+- name: Create Kibana group
+  group:
+    name: kibana
+    state: present
+
+- name: Create Kibana user
+  user:
+    name: kibana
+    group: kibana
+    home: /usr/share/kibana
+    shell: /usr/sbin/nologin
+    system: yes
+    state: present
+
+# Install Kibana
+- name: Install Kibana {{ kibana_version }}
+  apt:
+    name: "kibana={{ kibana_version }}"
+    state: present
+    update_cache: yes

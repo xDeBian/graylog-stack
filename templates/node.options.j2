@@ -1,0 +1,8 @@
+{{ ansible_managed | comment }}
+
+## Node command line options
+## See `node --help` and `node --v8-options` for available options
+## Please note you should specify one option per line
+
+## max size of old space in megabytes
+--max_old_space_size={{ kibana_server_memory | default('2048') }}

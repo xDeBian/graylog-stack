@@ -1,0 +1,27 @@
+- name: Install required packages
+  apt:
+    name:
+      - awscli
+    state: present
+  become: yes
+
+- name: Create backup script
+  shell: |
+      #!/bin/bash
+      export AWS_ACCESS_KEY_ID={{ aws_access_key }}
+      export AWS_SECRET_ACCESS_KEY={{ aws_secret_access_key }}
+      export AWS_DEFAULT_REGION={{ aws_default_region }}
+
+      TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
+      BACKUP_PATH="{{ backup_dir }}/$TIMESTAMP"
+      
+      mkdir -p "$BACKUP_PATH"
+      
+      mongodump --host={{ groups['mongodb-dump'][0] }} --port={{ mongodb_port }} --db={{ mongodb_db }} --username={{ mongodb_user }} --password={{ mongodb_password }} --out="$BACKUP_PATH"
+
+      tar -czf "{{ backup_dir }}/graylog_backup_$TIMESTAMP.tar.gz" -C "{{ backup_dir }}" "$TIMESTAMP"
+
+      aws s3 cp "{{ backup_dir }}/graylog_backup_$TIMESTAMP.tar.gz" "s3://{{ s3_bucket }}/graylog_backup_$TIMESTAMP.tar.gz"
+
+      rm -rf "$BACKUP_PATH"
+      rm -f "{{ backup_dir }}/graylog_backup_$TIMESTAMP.tar.gz"

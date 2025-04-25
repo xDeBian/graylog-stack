@@ -1,0 +1,44 @@
+
+  - name: Stop Kibana service
+    systemd:
+      name: kibana
+      state: stopped
+      enabled: no
+    ignore_errors: yes
+
+  - name: Remove Kibana package
+    apt:
+      name: kibana
+      state: absent
+      purge: yes
+
+  - name: Remove Kibana directories
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+      - /etc/kibana
+      - /var/lib/kibana
+      - /var/log/kibana
+      - /usr/share/kibana
+      - /var/run/kibana
+
+  - name: Remove Kibana user and group if exists
+    shell: |
+      id -u kibana &>/dev/null && deluser --remove-home kibana || true
+    args:
+      executable: /bin/bash
+
+  - name: Remove additional configuration files
+    shell: find / -name "*kibana*" -exec rm -rf {} +
+    args:
+      executable: /bin/bash
+
+  - name: Clean package cache
+    shell: apt-get autoremove -y && apt-get autoclean -y
+    args:
+      executable: /bin/bash
+
+  - name: Reboot server
+    reboot:
+      reboot_timeout: 600

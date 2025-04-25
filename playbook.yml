@@ -1,0 +1,198 @@
+  ##############
+  #    Mongo   #
+  ##############
+# - name: Install MongoDB
+#   hosts: mongodb-opensearch    
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+#   tasks: 
+
+#     - name: Include MongoDB installation tasks
+#       include_tasks: tasks/Mongo/mongodb_uninstall.yml
+
+    # - name: Include MongoDB installation tasks
+    #   include_tasks: tasks/Mongo/mongodb_install.yml
+
+#     - name: Include MongoDB configuration tasks
+#       include_tasks: tasks/Mongo/mongodb_configuration.yml
+
+#     - name: Include MongoDB Admin tasks
+#       include_tasks: tasks/Mongo/mongodb_create_admin_user.yml
+
+#     - name: Include MongoDB Replication tasks
+#       include_tasks: tasks/Mongo/mongodb_replication.yml
+
+#     - name: Include MongoDB Graylog tasks
+#       include_tasks: tasks/Mongo/mongodb_create_graylog_user.yml
+
+
+
+  ##############
+  # Mongo DUMP #
+  ##############
+# - name: Install MongoDB
+#   hosts: mongodb    
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+#   tasks: 
+    # - name: Include MongoDB Dump tasks
+    #   include_tasks: tasks/Mongo_dump/dump.yml
+
+  #################
+  # Mongo restore #
+  #################
+# - name: Install MongoDB
+#   hosts: mongodb    
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+#   tasks: 
+    # - name: Include MongoDB Restore tasks
+    #   include_tasks: tasks/Opensearch/restore_mongodb.yml
+
+ 
+  #####################
+  # Install Opensearch #
+  #####################
+
+# - name: Install Opensearch
+#   hosts: opensearch    
+#   serial: 1
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+#   tasks:
+#     - name: Include OpenSearch uninstall
+#       include_tasks: tasks/Opensearch/opensearch_uninstaller.yml
+
+#     - name: Include OpenSearch install  tasks
+#       include_tasks: tasks/Opensearch/opensearch_install.yml
+
+#     - name: Include OpenSearch configuration tasks
+#       include_tasks: tasks/Opensearch/opensearch_configuration.yml
+
+
+  ################################
+  # Install Opensearch Dashboards #
+  ################################
+
+# - name: Install opensearch dashboards 
+#   hosts: opensearch_dashboards    
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+#   tasks:
+#     - name: Install opensearch dashboards 
+#       include_tasks: tasks/Opensearch_Dashboards/dashboards_uninstall.yml
+
+    # - name: Install opensearch dashboards 
+    #   include_tasks: tasks/Opensearch_Dashboards/dashbioards_install.yml
+
+#   ###########################
+#   # Graylog For Opensearch  #
+#   ###########################
+
+# - name: Install graylog for Opensearch
+#   hosts: graylog-opensearch
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+    
+#   tasks:
+#     - name: Include Graylog configuration tasks
+#       include_tasks: tasks/Graylog_OS/graylog_uninstall.yml
+
+# #     - name: Include Graylog installation tasks
+#       include_tasks: tasks/Graylog_OS/graylog_install.yml
+
+#     - name: Include Graylog configuration tasks
+#       include_tasks: tasks/Graylog_OS/graylog_configuration.yml
+
+
+
+
+#   #############################
+#   # Graylog For Elasticsearch #
+#   #############################
+
+# - name: Install graylog
+#   hosts: graylog
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+    
+#   tasks:
+#     - name: Include Graylog configuration tasks
+#       include_tasks: tasks/Graylog_OS/graylog_uninstall.yml
+
+    # - name: Include Graylog installation tasks
+    #   include_tasks: tasks/Graylog_ES/graylog_install.yml
+
+    # - name: Include Graylog configuration tasks
+    #   include_tasks: tasks/Graylog_ES/graylog_configuration.yml
+
+
+#   ##############################################
+#   # Graylog Upgrade and Downgrade 5.x to 6.1  #
+#   ##############################################
+
+# - name: Install graylog {{ new_graylog_repo_version }}
+#   hosts: graylog
+#   become: yes
+#   vars_files:
+#     - default/main.yml
+    
+#   tasks:
+#     - name: Include Graylog configuration tasks
+#       include_tasks: tasks/Grylog_Upgrade_Downgrade/upgrade_graylog.yml
+
+
+
+
+    #################
+    # ElasticSearch #
+  #   #################
+  # - name: Install ElasticSearch
+  #   hosts: elasticsearch 
+  #   become: yes
+  #   vars_files:
+  #     - default/main.yml
+  #   tasks: 
+
+  #       - name: Include Elasticsearch Create Admin user tasks
+  #         include_tasks: tasks/Elasticsearch/elasticsearch_uninstaller.yml
+
+  #       - name: Include Elasticsearch install  tasks
+  #         include_tasks: tasks/Elasticsearch/elasticsearch_install.yml
+
+  #       - name: Include Elasticsearch configuration tasks
+  #         include_tasks: tasks/Elasticsearch/elasticsearch_configuration.yml
+
+  #       - name: Include Elasticsearch Metrocbeat tasks
+  #         include_tasks: tasks/Elasticsearch/elasticsearch_metricbeat.yml
+
+
+
+    ###########
+    # Kibana  #
+    ###########
+  # - name: Install Kibana
+  #   hosts: kibana
+  #   become: yes
+  #   vars_files:
+  #     - default/main.yml
+  #   tasks: 
+
+  #     - name: Include Kibana uninstaller tasks
+  #       include_tasks: tasks/Kibana/kibana_uninstaller.yml
+
+  #     - name: Include Kibana installation tasks
+  #       include_tasks: tasks/Kibana/kibana_install.yml
+
+  #     - name: Include Kibana configuration tasks
+  #       include_tasks: tasks/Kibana/kibana_create_cert.yml
+
+  #     - name: Include Kibana configuration tasks
+  #       include_tasks: tasks/Kibana/kibana_configuration.yml

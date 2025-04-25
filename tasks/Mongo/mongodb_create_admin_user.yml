@@ -1,0 +1,60 @@
+# 1. Deploy MongoDB configuration without security (for user creation)
+- name: Deploy MongoDB configuration without security
+  template:
+    src: mongodb_without_security.conf.j2
+    dest: /etc/mongod.conf
+    owner: mongodb
+    group: mongodb
+    mode: "0644"
+  register: mongo_config_no_security
+
+- name: Restart MongoDB if config changed
+  systemd:
+    name: mongod
+    state: restarted
+  when: mongo_config_no_security.changed
+
+# 2. Create admin user (only on primary node)
+- name: Create admin user
+  shell: |
+    mongosh --host {{ groups['mongodb'][0] }} --eval 'db = db.getSiblingDB("admin"); db.createUser({user:"{{ mongodb_user }}", pwd:"{{ mongodb_password }}", roles:[{role:"root", db:"admin"}]})'
+  when: inventory_hostname == groups['mongodb'][0]
+  register: create_admin
+  changed_when: "'Successfully added user' in create_admin.stdout"
+  failed_when: "'Error' in create_admin.stdout"
+
+# 3. Verify admin user creation
+- name: Verify admin user creation
+  shell: |
+    mongosh --host {{ groups['mongodb'][0] }} --username "{{ mongodb_user }}" --password "{{ mongodb_password }}" --eval 'db = db.getSiblingDB("admin"); db.system.users.find({user:"{{ mongodb_user }}"})'
+  register: verify_admin_user
+  changed_when: false
+  failed_when: "'No matching documents' in verify_admin_user.stdout"
+  
+- name: Show admin user creation status
+  debug:
+    msg: "Admin user successfully created: {{ verify_admin_user.stdout }}"
+
+# 4. Stop MongoDB service before making changes
+- name: Stop MongoDB service before making changes
+  service:
+    name: mongod
+    state: stopped
+  become: true
+
+# 5. Transfer MongoDB configuration with security enabled
+- name: Transfer MongoDB configuration with security enabled
+  template:
+    src: mongodb_with_security.conf.j2
+    dest: /etc/mongod.conf
+    owner: mongodb
+    group: mongodb
+    mode: '0644'
+
+# 6. Start MongoDB service after configuration change
+- name: Start MongoDB service after configuration change
+  service:
+    name: mongod
+    state: started
+    enabled: yes
+  become: true

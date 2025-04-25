@@ -1,0 +1,114 @@
+# Disable swap temporarily
+- name: Disable swap temporarily
+  command: swapoff -a
+
+# Remove swap entry from /etc/fstab
+- name: Remove swap entry from /etc/fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^\s*([^#]\S+\s+swap\s+sw.*)$'
+    replace: '# \1'
+
+# Configure OpenSearch settings
+- name: Configure OpenSearch settings
+  template:
+    src: opensearch.yml.j2
+    dest: /etc/opensearch/opensearch.yml
+    mode: '0644'
+
+# Change ownership of /etc/opensearch recursively
+- name: Change ownership of OpenSearch files
+  file:
+    path: /etc/opensearch
+    owner: opensearch
+    group: opensearch
+    mode: '0755'
+    recurse: yes
+
+# Create backup directory for OpenSearch
+- name: Create backup directory for OpenSearch
+  file:
+    path: "/etc/opensearch/backup"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0755'
+
+- name: Change admin user reserved option
+  replace:
+    path: /etc/opensearch/opensearch-security/internal_users.yml
+    regexp: '(^admin:\s*\n(?:.*\n)*?\s*reserved:\s*)true'
+    replace: '\1false'
+    backup: yes
+
+- name: Verify admin reserved flag updated
+  shell: grep -A 3 "^admin:" /etc/opensearch/opensearch-security/internal_users.yml
+  register: admin_section
+
+- debug:
+    var: admin_section.stdout_lines
+
+
+# Replace OpenSearch security demo script with custom template
+- name: Deploy custom OpenSearch security demo script
+  template:
+    src: install_demo_configuration.sh.j2
+    dest: /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh
+    mode: '0755'
+
+# Run OpenSearch security demo script
+- name: Run OpenSearch security demo script
+  command: /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh -y
+  args:
+    chdir: /usr/share/opensearch/plugins/opensearch-security/tools/
+  register: demo_script_result
+
+# Daemon reload
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+# Start and enable OpenSearch service
+- name: Start and enable OpenSearch service
+  systemd:
+    name: opensearch
+    state: started
+    enabled: yes
+
+# Wait for OpenSearch service to be active
+- name: Wait for OpenSearch service to start
+  shell: "systemctl is-active opensearch"
+  register: opensearch_status
+  retries: 10
+  delay: 5
+  until: opensearch_status.stdout == "active"
+
+- name: Debug OpenSearch service status
+  debug:
+    msg: "OpenSearch service is running on {{ inventory_hostname }}"
+
+# Confirm Certs
+- name: Confirm Demo Certs
+  command: timeout 60 sudo "/usr/share/opensearch/plugins/opensearch-security/tools/securityadmin_demo.sh"
+  args:
+    chdir: /usr/share/opensearch/plugins/opensearch-security/tools/
+  register: certs_result
+  ignore_errors: yes
+
+- name: Debug Certificate Confirmation
+  debug:
+    msg: "{{ certs_result.stdout if certs_result.stdout else 'No output or command failed' }}"
+
+# Disable HTTP SSL in OpenSearch configuration
+- name: Disable plugins.security.ssl.http.enabled in opensearch.yml
+  lineinfile:
+    path: /etc/opensearch/opensearch.yml
+    regexp: '^plugins\.security\.ssl\.http\.enabled:\s*true'
+    line: 'plugins.security.ssl.http.enabled: false'
+    backrefs: yes
+
+# Restart OpenSearch to apply config changes
+- name: Restart OpenSearch service
+  systemd:
+    name: opensearch
+    state: restarted

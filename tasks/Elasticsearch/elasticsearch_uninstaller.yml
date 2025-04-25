@@ -1,0 +1,81 @@
+# --- Metricbeat Removal ---
+    - name: Stop Metricbeat service
+      systemd:
+        name: metricbeat
+        state: stopped
+        enabled: no
+      ignore_errors: true
+
+    - name: Remove Metricbeat package
+      apt:
+        name: metricbeat
+        state: absent
+        purge: yes
+      ignore_errors: true
+
+    - name: Remove Metricbeat directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/metricbeat
+        - /var/lib/metricbeat
+        - /var/log/metricbeat
+        - /usr/share/metricbeat
+        - /var/run/metricbeat
+      ignore_errors: true
+
+    # --- Elasticsearch Removal ---
+    - name: Stop Elasticsearch service
+      systemd:
+        name: elasticsearch
+        state: stopped
+        enabled: no
+      ignore_errors: true
+
+    - name: Remove Elasticsearch package
+      apt:
+        name: elasticsearch
+        state: absent
+        purge: yes
+      ignore_errors: true
+
+    - name: Remove Elasticsearch directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/elasticsearch
+        - /var/lib/elasticsearch
+        - /var/log/elasticsearch
+        - /usr/share/elasticsearch
+        - /var/run/elasticsearch
+      ignore_errors: true
+
+    - name: Remove Elasticsearch user and group if exists
+      shell: |
+        id -u elasticsearch &>/dev/null && deluser --remove-home elasticsearch || true
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Remove additional configuration files
+      shell: find / -name "*elasticsearch*" -exec rm -rf {} +
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    # --- Cleanup ---
+    - name: Clean package cache
+      shell: apt-get autoremove -y && apt-get autoclean -y
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Reboot servers
+      reboot:
+        reboot_timeout: 600
